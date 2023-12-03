@@ -1,0 +1,9 @@
+{
+  "recommendations": [
+    "EditorConfig.EditorConfig",
+    "oderwat.indent-rainbow",
+    "aaron-bond.better-comments",
+    "rust-lang.rust-analyzer",
+    "swellaby.vscode-rust-test-adapter"
+  ]
+}
