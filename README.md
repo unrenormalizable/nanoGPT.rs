@@ -15,3 +15,8 @@
 - Format: ```cargo clean; cargo fmt --all -- --check```
 - Clippy: ```cargo clean; cargo clippy --tests --all-targets --all-features -- -D warnings```
 - Watch Tests: ```cargo watch -x test```
+
+## References
+
+- [https://github.com/karpathy/nanoGPT](https://github.com/karpathy/nanoGPT.)
+- [https://www.youtube.com/watch?v=kCc8FmEb1nY](Let's build GPT: from scratch, in code, spelled out.)
