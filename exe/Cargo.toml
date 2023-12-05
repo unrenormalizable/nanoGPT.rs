@@ -10,6 +10,8 @@ license = "CC BY-NC-SA 4.0"
 
 [dependencies]
 nano_gpt_lib = { path = '../core' }
+burn = { workspace = true, features = ["wgpu", "train"] }
+burn-ndarray = { workspace = true }
 colored = "2"
 chrono = "0.4"
 clap = "2.33.3"
