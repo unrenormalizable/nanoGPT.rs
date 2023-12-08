@@ -3,9 +3,8 @@ use burn::{
     tensor::{backend::Backend, Data, ElementConversion, Int, Tensor},
 };
 use burn_dataset::{
-    transform::{ Mapper, MapperDataset },
-    Dataset,
-    InMemDataset,
+    transform::{Mapper, MapperDataset},
+    Dataset, InMemDataset,
 };
 use serde::{Deserialize, Serialize};
 

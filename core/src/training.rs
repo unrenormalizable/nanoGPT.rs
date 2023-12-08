@@ -1,6 +1,6 @@
 use crate::{
+    data::{NanoGptBatch, NanoGptBatcher, NanoGptDataset},
     logger::*,
-    data::{ NanoGptBatch, NanoGptBatcher, NanoGptDataset},
 };
 use burn::{
     self,
@@ -39,7 +39,12 @@ pub struct TrainingConfig {
     pub learning_rate: f64,
 }
 
-pub fn train<B: AutodiffBackend>(artifact_dir: &str, config: TrainingConfig, device: B::Device, logger: &dyn NanoGptLogger) {
+pub fn train<B: AutodiffBackend>(
+    artifact_dir: &str,
+    config: TrainingConfig,
+    device: B::Device,
+    logger: &dyn NanoGptLogger,
+) {
     std::fs::create_dir_all(artifact_dir).ok();
     config
         .save(format!("{artifact_dir}/config.json"))
