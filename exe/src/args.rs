@@ -1,13 +1,13 @@
 use clap::{App, Arg, ArgMatches};
 use std::path::Path;
 
-pub struct NanoGptArgs<'a> {
+pub struct ArgsInfo<'a> {
     pub input_file: &'a str,
     pub output_folder: &'a str,
 }
 
-pub(crate) fn get_args<'a>(args: &'a ArgMatches) -> NanoGptArgs<'a> {
-    NanoGptArgs {
+pub(crate) fn get_args<'a>(args: &'a ArgMatches) -> ArgsInfo<'a> {
+    ArgsInfo {
         input_file: args
             .value_of("INPUT_FILE")
             .expect("This is a required argument"),
