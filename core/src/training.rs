@@ -1,23 +1,23 @@
 use crate::{
-    data::{NanoGptBatch, NanoGptBatcher, NanoGptDataset},
-    logger::*,
+    data::{ CharTokenizer, TextGenerationBatcher, TextGenerationItem, Tokenizer },
+    // model::TextGenerationModelConfig,
 };
+use burn::data::dataset::transform::SamplerDataset;
 use burn::{
-    self,
     config::Config,
-    data::dataloader::DataLoaderBuilder,
+    data::{dataloader::DataLoaderBuilder, dataset::Dataset},
+    lr_scheduler::noam::NoamLrSchedulerConfig,
     module::Module,
-    nn::loss::CrossEntropyLoss,
+    nn::transformer::TransformerEncoderConfig,
     optim::AdamConfig,
-    record::CompactRecorder,
-    tensor::{
-        backend::{AutodiffBackend, Backend},
-        Int, Tensor,
+    record::{CompactRecorder, DefaultRecorder, Recorder},
+    tensor::backend::AutodiffBackend,
+    train::{
+        metric::{AccuracyMetric, CUDAMetric, LearningRateMetric, LossMetric},
+        LearnerBuilder,
     },
 };
-use std::collections::HashMap;
-use std::fs::File;
-use std::io::Read;
+use std::sync::Arc;
 
 pub struct ArgsInfo<'a> {
     pub input_file: &'a str,
@@ -25,134 +25,73 @@ pub struct ArgsInfo<'a> {
 }
 
 #[derive(Config)]
-pub struct TrainingConfig {
-    // TODO: Clean this up.
-    #[config(default = 10)]
-    pub num_epochs: usize,
-    #[config(default = 64)]
-    pub batch_size: usize,
-    #[config(default = 4)]
-    pub num_workers: usize,
-    #[config(default = 42)]
-    pub seed: u64,
-    #[config(default = 1.0e-4)]
-    pub learning_rate: f64,
+pub struct ExperimentConfig {
+    #[config(default = 512)]
+    max_seq_length: usize,
+    #[config(default = 6)]
+    batch_size: usize,
+    #[config(default = 50)]
+    num_epochs: usize,
 }
 
-pub fn train<B: AutodiffBackend>(
-    artifact_dir: &str,
-    config: TrainingConfig,
+pub fn train<B: AutodiffBackend, D: Dataset<TextGenerationItem> + 'static>(
     device: B::Device,
-    logger: &dyn NanoGptLogger,
+    dataset_train: D,
+    dataset_test: D,
+    config: ExperimentConfig,
+    artifact_dir: &str,
 ) {
-    std::fs::create_dir_all(artifact_dir).ok();
-    config
-        .save(format!("{artifact_dir}/config.json"))
-        .expect("Save without error");
+    let tokenizer = Arc::new(CharTokenizer::default());
+    let batcher_train = TextGenerationBatcher::new(tokenizer.clone(), config.max_seq_length);
+    let batcher_test = TextGenerationBatcher::new(tokenizer.clone(), config.max_seq_length);
 
-    B::seed(config.seed);
+    //let model = TextGenerationModelConfig::new(
+    //    config.transformer.clone(),
+    //    tokenizer.vocab_size(),
+    //    tokenizer.pad_token(),
+    //    config.max_seq_length,
+    //)
+    //.init::<B>();
 
-    let batcher_train = NanoGptBatcher::<B>::new(device.clone());
-    //let batcher_valid = NanoGptBatcher::<B::InnerBackend>::new(device.clone());
-
-    let dataloader_train = DataLoaderBuilder::new(batcher_train)
-        .batch_size(config.batch_size)
-        .shuffle(config.seed)
-        .num_workers(config.num_workers)
-        .build(NanoGptDataset::train());
-
-    let dataloader = dataloader_train;
-    let mut iterator = dataloader.iter();
-    while let Some(item) = iterator.next() {
-        logger.info(&format!("??? {item:?}"));
-    }
-
-    //let dataloader_test = DataLoaderBuilder::new(batcher_valid)
+    //let dataloader_train = DataLoaderBuilder::new(batcher_train)
     //    .batch_size(config.batch_size)
-    //    .shuffle(config.seed)
-    //    .num_workers(config.num_workers)
-    //    .build(NanoGptDataset::test());
+    //    .num_workers(4)
+    //    .build(SamplerDataset::new(dataset_train, 10_000));
+
+    //let dataloader_test = DataLoaderBuilder::new(batcher_test)
+    //    .batch_size(config.batch_size)
+    //    .num_workers(4)
+    //    .build(SamplerDataset::new(dataset_test, 1000));
+
+    //let accum = 6; // Effective batch size = 6 * 6 = 32.
+    //let optim = config.optimizer.init();
+    //let lr_scheduler = NoamLrSchedulerConfig::new(0.01 / accum as f64)
+    //    .with_warmup_steps(6000)
+    //    .with_model_size(config.transformer.d_model)
+    //    .init();
 
     //let learner = LearnerBuilder::new(artifact_dir)
-    //    .metric_train_numeric(AccuracyMetric::new())
-    //    .metric_valid_numeric(AccuracyMetric::new())
-    //    .metric_train_numeric(LossMetric::new())
-    //    .metric_valid_numeric(LossMetric::new())
+    //    .metric_train(CUDAMetric::new())
+    //    .metric_valid(CUDAMetric::new())
+    //    .metric_train_numeric(AccuracyMetric::new().with_pad_token(tokenizer.pad_token()))
+    //    .metric_valid_numeric(AccuracyMetric::new().with_pad_token(tokenizer.pad_token()))
+    //    .metric_train(LossMetric::new())
+    //    .metric_valid(LossMetric::new())
+    //    .metric_train_numeric(LearningRateMetric::new())
     //    .with_file_checkpointer(CompactRecorder::new())
     //    .devices(vec![device])
+    //    .grads_accumulation(accum)
     //    .num_epochs(config.num_epochs)
-    //    .build(
-    //        config.model.init::<B>(),
-    //        config.optimizer.init(),
-    //        config.learning_rate,
-    //    );
+    //    .build(model, optim, lr_scheduler);
 
     //let model_trained = learner.fit(dataloader_train, dataloader_test);
 
-    //model_trained
-    //    .save_file(format!("{artifact_dir}/model"), &CompactRecorder::new())
-    //    .expect("Failed to save trained model");
-}
+    //config.save(format!("{artifact_dir}/config.json")).unwrap();
 
-pub fn run(args_info: &ArgsInfo, logger: &dyn NanoGptLogger) -> Result<(), String> {
-    logger.info(&format!(
-        "Starting with {:?},  {:?}.",
-        args_info.input_file, args_info.output_folder
-    ));
-
-    let mut file = File::open(args_info.input_file).map_err(|e| e.to_string())?;
-    let mut contents = String::new();
-
-    file.read_to_string(&mut contents)
-        .map_err(|e| e.to_string())?;
-
-    logger.info(&format!("# of characters {:?}", contents.len()));
-    let s: std::collections::HashSet<char> = contents.chars().collect();
-    let mut v = Vec::from_iter(s);
-    v.sort();
-
-    let mut decoder_data: HashMap<usize, char> = HashMap::new();
-    let mut encoder_data: HashMap<char, usize> = HashMap::new();
-
-    for (index, value) in v.iter().enumerate() {
-        decoder_data.insert(index, *value);
-        encoder_data.insert(*value, index);
-    }
-
-    logger.info(&format!("{:?}", encode("hii there", &encoder_data)));
-    logger.info(&format!(
-        "{:?}",
-        decode(encode("hii there", &encoder_data), &decoder_data)
-    ));
-
-    Ok(())
-}
-
-fn encode<'a>(string: &str, encoder_data: &'a HashMap<char, usize>) -> Vec<&'a usize> {
-    string
-        .chars()
-        .map(|c| encoder_data.get(&c).unwrap())
-        .collect::<Vec<&usize>>()
-}
-
-fn decode(tokens: Vec<&usize>, decoder_data: &HashMap<usize, char>) -> String {
-    tokens
-        .into_iter()
-        .map(|t| decoder_data.get(t).unwrap())
-        .collect::<String>()
-}
-
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
+    //DefaultRecorder::new()
+    //    .record(
+    //        model_trained.into_record(),
+    //        format!("{artifact_dir}/model").into(),
+    //    )
+    //    .unwrap();
 }

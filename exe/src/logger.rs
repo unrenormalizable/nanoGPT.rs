@@ -8,6 +8,7 @@ fn get_time_stamp() -> String {
 
 pub(crate) struct ColoredConsoleLogger;
 
+// TODO: Replace with log crate.
 impl NanoGptLogger for ColoredConsoleLogger {
     fn info(&self, msg: &str) {
         println!(

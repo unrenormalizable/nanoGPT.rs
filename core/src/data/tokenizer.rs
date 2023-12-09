@@ -1,18 +1,20 @@
 use std::collections::HashMap;
 
 pub trait Tokenizer: Send + Sync {
+    fn encode_one(&self, value: &char) -> usize;
     fn encode(&self, value: &str) -> Vec<usize>;
+    fn decode_one(&self, tokens: &usize) -> char;
     fn decode(&self, tokens: &[usize]) -> String;
     fn vocab_size(&self) -> usize;
 }
 
-pub struct NanoGptTokenizer {
+pub struct CharTokenizer {
     decoder_data: HashMap<usize, char>,
     encoder_data: HashMap<char, usize>,
     chars: String,
 }
 
-impl Default for NanoGptTokenizer {
+impl Default for CharTokenizer {
     fn default() -> Self {
         // NOTE: Hard coding it here. Eventually generate it outside code & download it here.
         let chars =
@@ -33,18 +35,26 @@ impl Default for NanoGptTokenizer {
     }
 }
 
-impl Tokenizer for NanoGptTokenizer {
+impl Tokenizer for CharTokenizer {
+    fn encode_one(&self, value: &char) -> usize {
+        *self.encoder_data.get(&value).unwrap()
+    }
+
     fn encode(&self, value: &str) -> Vec<usize> {
         value
             .chars()
-            .map(|c| *self.encoder_data.get(&c).unwrap())
+            .map(|c| self.encode_one(&c))
             .collect::<Vec<usize>>()
+    }
+
+    fn decode_one(&self, token: &usize) -> char {
+        *self.decoder_data.get(token).unwrap()
     }
 
     fn decode(&self, tokens: &[usize]) -> String {
         tokens
             .into_iter()
-            .map(|t| self.decoder_data.get(t).unwrap())
+            .map(|t| self.decode_one(t))
             .collect::<String>()
     }
 
@@ -59,7 +69,7 @@ mod tests {
 
     #[test]
     fn test_encode_decode() {
-        let tokenizer = NanoGptTokenizer::default();
+        let tokenizer = CharTokenizer::default();
         let text = tokenizer.chars.clone();
 
         let tokens = tokenizer.encode(&text);

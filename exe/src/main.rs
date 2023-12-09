@@ -13,17 +13,14 @@ fn main() -> Result<(), String> {
 
     let ai = create_args_info(&args);
 
-    //nano_gpt_lib::training::run(&ai, &l)
-    type MyBackend = Wgpu<AutoGraphicsApi, f32, i32>;
-    type MyAutodiffBackend = Autodiff<MyBackend>;
+    let config = ExperimentConfig::new();
 
-    let device = burn::backend::wgpu::WgpuDevice::default();
-    let artifact_dir = "/tmp/guide";
-    nano_gpt_lib::training::train::<MyAutodiffBackend>(
-        artifact_dir,
-        TrainingConfig::new(),
-        device.clone(),
-        &l,
+    text_generation::training::train::<Backend, DbPediaDataset>(
+        burn::tensor::Device::<Backend>::Cuda(0),
+        DbPediaDataset::train(),
+        DbPediaDataset::test(),
+        config,
+        "/tmp/text-generation",
     );
 
     Ok(())

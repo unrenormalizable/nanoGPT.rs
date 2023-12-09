@@ -10,3 +10,4 @@ serde = { version = "1.0.192", default-features = false, features = [
     "derive",
     "alloc",
 ] } # alloc is for no_std, derive is needed
+derive-new = { version = "0.5.9", default-features = false }

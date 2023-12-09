@@ -1904,6 +1904,7 @@ dependencies = [
  "burn",
  "burn-dataset",
  "burn-ndarray",
+ "derive-new",
  "insta",
  "log",
  "proptest",
