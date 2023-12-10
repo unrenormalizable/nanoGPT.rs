@@ -19,6 +19,7 @@ burn-ndarray = { workspace = true }
 derive-new = { workspace = true }
 log = { workspace = true }
 serde = { workspace = true, features = ["std", "derive"] }
+rand = "0.8.5"
 
 [dev-dependencies]
 proptest = "0.4.1"
