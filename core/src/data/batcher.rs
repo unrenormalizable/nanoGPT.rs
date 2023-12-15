@@ -1,4 +1,4 @@
-use crate::tokenizer::Tokenizer;
+use crate::data::tokenizer::Tokenizer;
 use burn::{
     data::dataloader::batcher::Batcher,
     tensor::{backend::Backend, Data, Int, Shape, Tensor},
@@ -50,7 +50,7 @@ impl<B: Backend> Batcher<NanoGptToken, NanoGptBatch<B>> for NanoGptBatcher<B> {
 
 #[cfg(test)]
 mod tests {
-    use crate::tokenizer::CharTokenizer;
+    use crate::data::tokenizer::CharTokenizer;
     use super::*;
     use burn_ndarray::*;
 

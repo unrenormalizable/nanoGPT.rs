@@ -3,4 +3,3 @@ extern crate derive_new;
 
 mod data;
 mod model;
-mod tokenizer;
