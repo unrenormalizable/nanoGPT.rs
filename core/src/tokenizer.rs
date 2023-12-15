@@ -58,6 +58,24 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_encode() {
+        let tokenizer = CharTokenizer::default();
+
+        let x = tokenizer.encode(&"hello?".chars().collect::<Vec<_>>());
+
+        assert_eq!(x, [45, 42, 49, 49, 52, 11]);
+    }
+
+    #[test]
+    fn test_decode() {
+        let tokenizer = CharTokenizer::default();
+
+        let x = tokenizer.decode(&[45, 42, 49, 49, 52, 11]);
+
+        assert_eq!(x, "hello?".chars().collect::<Vec<_>>());
+    }
+
+    #[test]
     fn test_encode_decode() {
         let tokenizer = CharTokenizer::default();
         let chars = tokenizer.chars.chars().collect::<Vec<char>>();

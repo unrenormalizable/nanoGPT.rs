@@ -34,13 +34,13 @@ impl<B: Backend> NanoGptModel<B> {
         let logits = self.token_embedding_table.forward(idx);
 
         let l_s = logits.shape();
-        let l = logits.reshape(Shape::new([l_s.dims[0] * l_s.dims[1], l_s.dims[2]]));
+        let logits = logits.reshape(Shape::new([l_s.dims[0] * l_s.dims[1], l_s.dims[2]]));
 
         let t_s = targets.shape();
-        let t = targets.reshape(Shape::new([t_s.dims[0] * t_s.dims[1]]));
+        let targets = targets.reshape(Shape::new([t_s.dims[0] * t_s.dims[1]]));
 
-        let loss = CrossEntropyLoss::default().forward(l.clone(), t);
+        let loss = CrossEntropyLoss::default().forward(logits.clone(), targets);
 
-        (l, loss)
+        (logits, loss)
     }
 }

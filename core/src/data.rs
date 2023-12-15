@@ -1,13 +1,16 @@
+use crate::tokenizer::Tokenizer;
 use burn::{
     data::dataloader::batcher::Batcher,
-    tensor::{backend::Backend, Data, Int, Tensor},
+    tensor::{backend::Backend, Data, Int, Shape, Tensor},
 };
+use std::sync::Arc;
 
-type NanoGptToken = i32;
+type NanoGptToken = char;
 
 #[derive(new)]
 pub struct NanoGptBatcher<B: Backend> {
     device: B::Device,
+    tokenizer: Arc<dyn Tokenizer>,
     batch_size: usize,
     block_size: usize,
     generate_indices: fn(length: usize, amount: usize) -> Vec<usize>
@@ -26,7 +29,8 @@ impl<B: Backend> Batcher<NanoGptToken, NanoGptBatch<B>> for NanoGptBatcher<B> {
         let tokens: Vec<Tensor<B, 1, Int>> = indices
             .iter()
             .map(|&i| &items[i..i + self.block_size])
-            .map(Data::from)
+            .map(|x| self.tokenizer.encode(x))
+            .map(|x| Data::new(x, Shape::new([self.block_size])))
             .map(|data| Tensor::from_data(data.convert()))
             .collect();
         let tokens: Tensor<B, 2, Int> = Tensor::stack(tokens, 0).to_device(&self.device);
@@ -34,7 +38,8 @@ impl<B: Backend> Batcher<NanoGptToken, NanoGptBatch<B>> for NanoGptBatcher<B> {
         let targets: Vec<Tensor<B, 1, Int>> = indices
             .iter()
             .map(|&i| &items[i + 1..i + self.block_size + 1])
-            .map(Data::from)
+            .map(|x| self.tokenizer.encode(x))
+            .map(|x| Data::new(x, Shape::new([self.block_size])))
             .map(|data| Tensor::from_data(data.convert()))
             .collect();
         let targets: Tensor<B, 2, Int> = Tensor::stack(targets, 0).to_device(&self.device);
@@ -45,6 +50,7 @@ impl<B: Backend> Batcher<NanoGptToken, NanoGptBatch<B>> for NanoGptBatcher<B> {
 
 #[cfg(test)]
 mod tests {
+    use crate::tokenizer::CharTokenizer;
     use super::*;
     use burn_ndarray::*;
 
@@ -56,11 +62,11 @@ mod tests {
 
     #[test]
     fn batcher_test() {
-        let b: NanoGptBatcher<Backend> = NanoGptBatcher::new(NdArrayDevice::Cpu, 3, 2, generate_indices);
+        let b: NanoGptBatcher<Backend> = NanoGptBatcher::new(NdArrayDevice::Cpu, Arc::new(CharTokenizer::default()), 3, 2, generate_indices);
 
-        let x = b.batch(vec![0, 1, 2222, 3, 4, 5]);
+        let x = b.batch("hello?".chars().collect());
 
-        assert_eq!(&x.tokens.to_data(), &Data::from([[0, 1], [1, 2222], [2222, 3]]));
-        assert_eq!(&x.targets.to_data(), &Data::from([[1, 2222], [2222, 3], [3, 4]]));
+        assert_eq!(&x.tokens.to_data(), &Data::from([[45, 42], [42, 49], [49, 49]]));
+        assert_eq!(&x.targets.to_data(), &Data::from([[42, 49], [49, 49], [49, 52]]));
     }
 }
