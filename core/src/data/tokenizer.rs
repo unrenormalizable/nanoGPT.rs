@@ -63,14 +63,14 @@ mod tests {
 
         let x = tokenizer.encode(&"hello?".chars().collect::<Vec<_>>());
 
-        assert_eq!(x, [45, 42, 49, 49, 52, 11]);
+        assert_eq!(x, [46, 43, 50, 50, 53, 12]);
     }
 
     #[test]
     fn test_decode() {
         let tokenizer = CharTokenizer::default();
 
-        let x = tokenizer.decode(&[45, 42, 49, 49, 52, 11]);
+        let x = tokenizer.decode(&[46, 43, 50, 50, 53, 12]);
 
         assert_eq!(x, "hello?".chars().collect::<Vec<_>>());
     }

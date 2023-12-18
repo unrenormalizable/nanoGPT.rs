@@ -28,10 +28,7 @@ impl NanoGptModelConfig {
 }
 
 impl<B: Backend> NanoGptModel<B> {
-    pub fn forward_training(
-        &self,
-        item: NanoGptBatch<B>
-    ) -> RegressionOutput<B> {
+    pub fn forward_training(&self, item: NanoGptBatch<B>) -> RegressionOutput<B> {
         let logits = self.token_embedding_table.forward(item.tokens);
 
         let l_s = logits.shape();
@@ -50,9 +47,7 @@ impl<B: Backend> NanoGptModel<B> {
     }
 }
 
-impl<B: AutodiffBackend> TrainStep<NanoGptBatch<B>, RegressionOutput<B>>
-    for NanoGptModel<B>
-{
+impl<B: AutodiffBackend> TrainStep<NanoGptBatch<B>, RegressionOutput<B>> for NanoGptModel<B> {
     fn step(&self, item: NanoGptBatch<B>) -> TrainOutput<RegressionOutput<B>> {
         let item = self.forward_training(item);
         let grads = item.loss.backward();
@@ -61,9 +56,7 @@ impl<B: AutodiffBackend> TrainStep<NanoGptBatch<B>, RegressionOutput<B>>
     }
 }
 
-impl<B: Backend> ValidStep<NanoGptBatch<B>, RegressionOutput<B>>
-    for NanoGptModel<B>
-{
+impl<B: Backend> ValidStep<NanoGptBatch<B>, RegressionOutput<B>> for NanoGptModel<B> {
     fn step(&self, item: NanoGptBatch<B>) -> RegressionOutput<B> {
         self.forward_training(item)
     }
