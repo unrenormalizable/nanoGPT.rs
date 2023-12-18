@@ -1,16 +1,29 @@
 mod args;
 
-fn main() -> Result<(), String> {
+use nano_gpt_lib::training::ExperimentConfig;
+use nano_gpt_lib::data::dataset::NanoGptDataset;
+use burn::optim::decay::WeightDecayConfig;
+
+type Backend = burn::backend::Autodiff<burn::backend::Wgpu>;
+
+fn main() {
+    let config = ExperimentConfig::new(
+        burn::optim::AdamConfig::new().with_weight_decay(Some(WeightDecayConfig::new(1.0e-6)))
+    );
+
+    nano_gpt_lib::training::train::<Backend, NanoGptDataset>(
+        burn::tensor::Device::<Backend>::default(),
+        NanoGptDataset::train("D:/src/u/nanoGPT.rs/input.txt"),
+        NanoGptDataset::test("D:/src/u/nanoGPT.rs/input.txt"),
+        config,
+        format!("/tmp/text-generation").as_str(),
+    );
+}
+
+fn main2() -> Result<(), String> {
     let arg_matches = args::parse_args();
     let args = args::get_args(&arg_matches);
     let ai = create_args_info(&args);
-
-    /*
-        let mut rng = rand::thread_rng();
-        let indices =
-            rand::seq::index::sample(&mut rng, items.len() - self.block_size, self.batch_size)
-                .into_vec();
-    */
 
     Ok(())
 }
@@ -21,3 +34,4 @@ fn create_args_info<'a>(args: &'a args::ArgsInfo) -> args::ArgsInfo<'a> {
         output_folder: args.output_folder,
     }
 }
+

@@ -1,8 +1,10 @@
+use crate::data::*;
 use burn::{
     config::Config,
     module::Module,
     nn::{loss::CrossEntropyLoss, Embedding, EmbeddingConfig},
-    tensor::{backend::Backend, Int, Shape, Tensor},
+    tensor::backend::{AutodiffBackend, Backend},
+    train::{RegressionOutput, TrainOutput, TrainStep, ValidStep},
 };
 
 #[derive(Module, Debug)]
@@ -26,21 +28,43 @@ impl NanoGptModelConfig {
 }
 
 impl<B: Backend> NanoGptModel<B> {
-    pub fn forward(
+    pub fn forward_training(
         &self,
-        idx: Tensor<B, 2, Int>,
-        targets: Tensor<B, 2, Int>,
-    ) -> (Tensor<B, 2>, Tensor<B, 1>) {
-        let logits = self.token_embedding_table.forward(idx);
+        item: NanoGptBatch<B>
+    ) -> RegressionOutput<B> {
+        let logits = self.token_embedding_table.forward(item.tokens);
 
         let l_s = logits.shape();
-        let logits = logits.reshape(Shape::new([l_s.dims[0] * l_s.dims[1], l_s.dims[2]]));
+        let logits = logits.reshape([l_s.dims[0] * l_s.dims[1], l_s.dims[2]]);
 
-        let t_s = targets.shape();
-        let targets = targets.reshape(Shape::new([t_s.dims[0] * t_s.dims[1]]));
+        let t_s = item.targets.shape();
+        let targets = item.targets.clone().reshape([t_s.dims[0] * t_s.dims[1]]);
 
         let loss = CrossEntropyLoss::default().forward(logits.clone(), targets);
 
-        (logits, loss)
+        RegressionOutput {
+            loss,
+            output: logits,
+            targets: item.targets.float(),
+        }
+    }
+}
+
+impl<B: AutodiffBackend> TrainStep<NanoGptBatch<B>, RegressionOutput<B>>
+    for NanoGptModel<B>
+{
+    fn step(&self, item: NanoGptBatch<B>) -> TrainOutput<RegressionOutput<B>> {
+        let item = self.forward_training(item);
+        let grads = item.loss.backward();
+
+        TrainOutput::new(self, grads, item)
+    }
+}
+
+impl<B: Backend> ValidStep<NanoGptBatch<B>, RegressionOutput<B>>
+    for NanoGptModel<B>
+{
+    fn step(&self, item: NanoGptBatch<B>) -> RegressionOutput<B> {
+        self.forward_training(item)
     }
 }

@@ -3,7 +3,7 @@ use std::collections::HashMap;
 pub trait Tokenizer: Send + Sync {
     fn encode(&self, chars: &[char]) -> Vec<i32>;
     fn decode(&self, tokens: &[i32]) -> Vec<char>;
-    fn vocab_size(&self) -> i32;
+    fn vocab_size(&self) -> usize;
 }
 
 pub struct CharTokenizer {
@@ -16,7 +16,7 @@ impl Default for CharTokenizer {
     fn default() -> Self {
         // NOTE: Hard coding it here. Eventually generate it outside code & download it here.
         let chars =
-            String::from("\n!$&',-.3:;?ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz");
+            String::from("\n !$&',-.3:;?ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz");
         let mut decoder_data: HashMap<i32, char> = HashMap::new();
         let mut encoder_data: HashMap<char, i32> = HashMap::new();
 
@@ -48,8 +48,8 @@ impl Tokenizer for CharTokenizer {
             .collect()
     }
 
-    fn vocab_size(&self) -> i32 {
-        self.chars.len() as i32
+    fn vocab_size(&self) -> usize {
+        self.chars.len()
     }
 }
 
