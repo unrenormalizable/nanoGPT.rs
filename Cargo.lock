@@ -1887,6 +1887,7 @@ version = "0.1.0"
 dependencies = [
  "burn",
  "burn-ndarray",
+ "burn-wgpu",
  "chrono",
  "clap",
  "colored",
@@ -1904,6 +1905,7 @@ dependencies = [
  "burn",
  "burn-dataset",
  "burn-ndarray",
+ "burn-wgpu",
  "derive-new",
  "insta",
  "log",

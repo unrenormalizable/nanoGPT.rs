@@ -6,7 +6,8 @@ use burn::{
 use std::sync::Arc;
 
 #[derive(new)]
-pub struct NanoGptBatcher {
+pub struct NanoGptBatcher<B: Backend> {
+    device: B::Device,
     tokenizer: Arc<dyn Tokenizer>,
 }
 
@@ -16,7 +17,7 @@ pub struct NanoGptBatch<B: Backend> {
     pub targets: Tensor<B, 2, Int>,
 }
 
-impl<B: Backend> Batcher<NanoGptItem, NanoGptBatch<B>> for NanoGptBatcher {
+impl<B: Backend> Batcher<NanoGptItem, NanoGptBatch<B>> for NanoGptBatcher<B> {
     fn batch(&self, items: Vec<NanoGptItem>) -> NanoGptBatch<B> {
         let tokens: Vec<Tensor<B, 1, Int>> = items
             .iter()
@@ -25,7 +26,7 @@ impl<B: Backend> Batcher<NanoGptItem, NanoGptBatch<B>> for NanoGptBatcher {
             .map(|(l, x)| Data::new(x, Shape::new([l])))
             .map(|data| Tensor::from_data(data.convert()))
             .collect();
-        let tokens: Tensor<B, 2, Int> = Tensor::stack(tokens, 0).to_device(&B::Device::default());
+        let tokens: Tensor<B, 2, Int> = Tensor::stack(tokens, 0).to_device(&self.device);
 
         let targets: Vec<Tensor<B, 1, Int>> = items
             .iter()
@@ -34,7 +35,7 @@ impl<B: Backend> Batcher<NanoGptItem, NanoGptBatch<B>> for NanoGptBatcher {
             .map(|(l, x)| Data::new(x, Shape::new([l])))
             .map(|data| Tensor::from_data(data.convert()))
             .collect();
-        let targets: Tensor<B, 2, Int> = Tensor::stack(targets, 0).to_device(&B::Device::default());
+        let targets: Tensor<B, 2, Int> = Tensor::stack(targets, 0).to_device(&self.device);
 
         NanoGptBatch { tokens, targets }
     }
@@ -50,11 +51,11 @@ mod tests {
 
     #[test]
     fn batcher_test() {
-        let b: NanoGptBatcher = NanoGptBatcher::new(Arc::new(CharTokenizer::default()));
+        let b: NanoGptBatcher<Backend> = NanoGptBatcher::<Backend>::new(Arc::new(CharTokenizer::default()), Backend::default());
 
         let x: NanoGptBatch<Backend> = b.batch(vec![
-            NanoGptItem::new(vec!['h', 'e', 'l', 'l', 'o', '?']),
-            NanoGptItem::new(vec!['w', 'o', 'r', 'l', 'd', '!']),
+            NanoGptItem::new(0, vec!['h', 'e', 'l', 'l', 'o', '?']),
+            NanoGptItem::new(0, vec!['w', 'o', 'r', 'l', 'd', '!']),
         ]);
 
         assert_eq!(

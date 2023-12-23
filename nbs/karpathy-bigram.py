@@ -12,6 +12,9 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 eval_iters = 200
 # ------------
 
+inputs_file = open('d:\\delme\\bigram-inputs.txt', 'w')
+print(f"device: {device}")
+
 torch.manual_seed(1337)
 
 # wget https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt
@@ -34,10 +37,16 @@ train_data = data[:n]
 val_data = data[n:]
 
 # data loading
-def get_batch(split):
+def get_batch(split, type):
     # generate a small batch of data of inputs x and targets y
     data = train_data if split == 'train' else val_data
     ix = torch.randint(len(data) - block_size, (batch_size,))
+
+    for (i, x) in [(i, text[i:i+block_size]) for i in ix]:
+        str = x.replace('\n', '|')
+        #inputs_file.write(f"{split[0:2]} {type[0:2]} {str}\n")
+        inputs_file.write(f"{i}\0{str}\n")
+
     x = torch.stack([data[i:i+block_size] for i in ix])
     y = torch.stack([data[i+1:i+block_size+1] for i in ix])
     x, y = x.to(device), y.to(device)
@@ -50,7 +59,7 @@ def estimate_loss():
     for split in ['train', 'val']:
         losses = torch.zeros(eval_iters)
         for k in range(eval_iters):
-            X, Y = get_batch(split)
+            X, Y = get_batch(split, 'estimate_loss')
             logits, loss = model(X, Y)
             losses[k] = loss.item()
         out[split] = losses.mean()
@@ -63,7 +72,8 @@ class BigramLanguageModel(nn.Module):
     def __init__(self, vocab_size):
         super().__init__()
         # each token directly reads off the logits for the next token from a lookup table
-        self.token_embedding_table = nn.Embedding(vocab_size, vocab_size)
+        # self.token_embedding_table = nn.Embedding(vocab_size, vocab_size)
+        self.token_embedding_table = nn.Embedding.from_pretrained(torch.ones((vocab_size, vocab_size), dtype=float, device=device), freeze=False)
 
     def forward(self, idx, targets=None):
 
@@ -109,7 +119,7 @@ for iter in range(max_iters):
         print(f"step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
 
     # sample a batch of data
-    xb, yb = get_batch('train')
+    xb, yb = get_batch('train', 'training_loop')
 
     # evaluate the loss
     logits, loss = model(xb, yb)

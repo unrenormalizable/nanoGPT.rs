@@ -8,7 +8,7 @@ use burn::{
         dataloader::DataLoaderBuilder,
         dataset::{transform::SamplerDataset, Dataset},
     },
-    lr_scheduler::noam::NoamLrSchedulerConfig,
+    lr_scheduler::{noam::NoamLrSchedulerConfig, constant::ConstantLr},
     module::Module,
     optim::AdamConfig,
     record::{CompactRecorder, DefaultRecorder, Recorder},
@@ -22,17 +22,20 @@ use std::sync::Arc;
 
 #[derive(Config)]
 pub struct ExperimentConfig {
-    optimizer: AdamConfig,
-    #[config(default = 4)]
-    batch_size: usize,
+    pub optimizer: AdamConfig,
+    #[config(default = 32)]
+    pub batch_size: usize,
     #[config(default = 8)]
     pub block_size: usize,
     #[config(default = 1337)]
     pub seed: u64,
-    #[config(default = 50)]
-    num_epochs: usize,
+    #[config(default = 1)]
+    pub num_workers: usize,
+    #[config(default = 30)]
+    pub num_epochs: usize,
 }
 
+// TODO: Pass the device, dont use ::Default()
 pub fn train<B: AutodiffBackend, D: Dataset<NanoGptItem> + 'static>(
     device: B::Device,
     dataset_train: D,
@@ -41,42 +44,40 @@ pub fn train<B: AutodiffBackend, D: Dataset<NanoGptItem> + 'static>(
     artifact_dir: &str,
 ) {
     let tokenizer = Arc::new(CharTokenizer::default());
-    let batcher_train = NanoGptBatcher::new(tokenizer.clone());
-    let batcher_test = NanoGptBatcher::new(tokenizer.clone());
+    let batcher_train = NanoGptBatcher::<B>::new(device.clone(), tokenizer.clone());
+    let batcher_test = NanoGptBatcher::<B::InnerBackend>::new(device.clone(), tokenizer.clone());
 
     let model = NanoGptModelConfig::new(tokenizer.vocab_size()).init::<B>();
 
     let dataloader_train = DataLoaderBuilder::new(batcher_train)
         .batch_size(config.batch_size)
-        .num_workers(1) // TODO: What is this used for?
-        .shuffle(config.seed)
-        .build(SamplerDataset::new(dataset_train, config.batch_size));
+        .num_workers(config.num_workers)
+        //.shuffle(config.seed)  // TODO: pass config.seed to samplerdataset
+        .build(SamplerDataset::new(dataset_train, 96000 / config.batch_size / config.num_epochs)); // TOOD: what should this be?
+        //.build(dataset_train);
 
     let dataloader_test = DataLoaderBuilder::new(batcher_test)
         .batch_size(config.batch_size)
-        .num_workers(config.batch_size)
-        .shuffle(config.seed)
-        .build(SamplerDataset::new(dataset_test, config.batch_size));
+        .num_workers(config.num_workers) 
+        //.shuffle(config.seed) // TODO: pass config.seed to samplerdataset
+        .build(SamplerDataset::new(dataset_test, 96000 / config.batch_size / config.num_epochs)); // TOOD: what should this be?
+        //.build(dataset_test);
 
-    let accum = 6; // Effective batch size = 6 * 6 = 32.
     let optim = config.optimizer.init();
-    let lr_scheduler = NoamLrSchedulerConfig::new(0.01 / accum as f64)
-        .with_warmup_steps(6000)
-        // .with_model_size(config.transformer.d_model): TODO: what is this?
-        .init();
+    let lr_scheduler = ConstantLr::new(1e-2);
 
     let learner = LearnerBuilder::new(artifact_dir)
         .metric_train(CUDAMetric::new())
         .metric_valid(CUDAMetric::new())
-        // TODO: what is this?
-        //.metric_train_numeric(AccuracyMetric::new())
-        //.metric_valid_numeric(AccuracyMetric::new())
+        .metric_train_numeric(LossMetric::new())
+        .metric_valid_numeric(LossMetric::new())
+        .metric_train_numeric(AccuracyMetric::new())
+        .metric_valid_numeric(AccuracyMetric::new())
         .metric_train(LossMetric::new())
         .metric_valid(LossMetric::new())
         .metric_train_numeric(LearningRateMetric::new())
         .with_file_checkpointer(CompactRecorder::new())
         .devices(vec![device])
-        .grads_accumulation(accum)
         .num_epochs(config.num_epochs)
         .build(model, optim, lr_scheduler);
 
@@ -90,11 +91,4 @@ pub fn train<B: AutodiffBackend, D: Dataset<NanoGptItem> + 'static>(
             format!("{artifact_dir}/model").into(),
         )
         .unwrap();
-}
-
-fn generate_indices(length: usize, amount: usize) -> Vec<usize> {
-    let mut rng = rand::thread_rng();
-    let indices = rand::seq::index::sample(&mut rng, length, amount).into_vec();
-
-    indices
 }

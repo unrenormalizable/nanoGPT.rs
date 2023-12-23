@@ -4,7 +4,7 @@ use burn::{
     module::Module,
     nn::{loss::CrossEntropyLoss, Embedding, EmbeddingConfig},
     tensor::backend::{AutodiffBackend, Backend},
-    train::{RegressionOutput, TrainOutput, TrainStep, ValidStep},
+    train::{ClassificationOutput, TrainOutput, TrainStep, ValidStep},
 };
 
 #[derive(Module, Debug)]
@@ -19,7 +19,9 @@ pub struct NanoGptModelConfig {
 
 impl NanoGptModelConfig {
     pub fn init<B: Backend>(&self) -> NanoGptModel<B> {
-        let token_embedding_table = EmbeddingConfig::new(self.vocab_size, self.vocab_size).init();
+        let token_embedding_table = EmbeddingConfig::new(self.vocab_size, self.vocab_size)
+        .with_initializer(burn::nn::Initializer::Ones)
+        .init(); // TODO: Explicitly initialize with device with next burn update.
 
         NanoGptModel {
             token_embedding_table,
@@ -28,27 +30,33 @@ impl NanoGptModelConfig {
 }
 
 impl<B: Backend> NanoGptModel<B> {
-    pub fn forward_training(&self, item: NanoGptBatch<B>) -> RegressionOutput<B> {
-        let logits = self.token_embedding_table.forward(item.tokens);
+    pub fn forward_training(&self, item: NanoGptBatch<B>) -> ClassificationOutput<B> {
+        let tokens = item.tokens;
+        let targets = item.targets;
+
+        println!("item.tokens = {}", tokens);
+        println!("item.targets = {}", targets);
+        let logits = self.token_embedding_table.forward(tokens.clone());
 
         let l_s = logits.shape();
         let logits = logits.reshape([l_s.dims[0] * l_s.dims[1], l_s.dims[2]]);
 
-        let t_s = item.targets.shape();
-        let targets = item.targets.clone().reshape([t_s.dims[0] * t_s.dims[1]]);
+        let t_s = targets.shape();
+        let targets = targets.clone().reshape([t_s.dims[0] * t_s.dims[1]]);
 
-        let loss = CrossEntropyLoss::default().forward(logits.clone(), targets);
+        let loss = CrossEntropyLoss::default().forward(logits.clone(), targets.clone());
+        println!("loss = {}", loss);
 
-        RegressionOutput {
+        ClassificationOutput {
             loss,
             output: logits,
-            targets: item.targets.float(),
+            targets,
         }
     }
 }
 
-impl<B: AutodiffBackend> TrainStep<NanoGptBatch<B>, RegressionOutput<B>> for NanoGptModel<B> {
-    fn step(&self, item: NanoGptBatch<B>) -> TrainOutput<RegressionOutput<B>> {
+impl<B: AutodiffBackend> TrainStep<NanoGptBatch<B>, ClassificationOutput<B>> for NanoGptModel<B> {
+    fn step(&self, item: NanoGptBatch<B>) -> TrainOutput<ClassificationOutput<B>> {
         let item = self.forward_training(item);
         let grads = item.loss.backward();
 
@@ -56,8 +64,8 @@ impl<B: AutodiffBackend> TrainStep<NanoGptBatch<B>, RegressionOutput<B>> for Nan
     }
 }
 
-impl<B: Backend> ValidStep<NanoGptBatch<B>, RegressionOutput<B>> for NanoGptModel<B> {
-    fn step(&self, item: NanoGptBatch<B>) -> RegressionOutput<B> {
+impl<B: Backend> ValidStep<NanoGptBatch<B>, ClassificationOutput<B>> for NanoGptModel<B> {
+    fn step(&self, item: NanoGptBatch<B>) -> ClassificationOutput<B> {
         self.forward_training(item)
     }
 }

@@ -3,6 +3,7 @@ use std::fs;
 
 #[derive(new, Clone, Debug)]
 pub struct NanoGptItem {
+    pub index: usize,
     pub chars: Vec<char>,
 }
 
@@ -18,6 +19,7 @@ impl Dataset<NanoGptItem> for NanoGptDataset {
         }
 
         Some(NanoGptItem::new(
+            index,
             self.dataset
                 .chars()
                 .skip(index)
